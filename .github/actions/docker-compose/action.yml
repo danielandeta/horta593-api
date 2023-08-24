@@ -1,0 +1,15 @@
+name: 'Docker-Compose Setup'
+description: 'Sets up docker-compose'
+runs:
+  using: 'composite'
+  steps:
+    - name: Install curl and sudo
+      shell: bash
+      run: sudo apt-get update && sudo apt-get install -y curl sudo
+    - name: Download Docker-Compose plugin
+      shell: bash
+      run: sudo curl -SL https://github.com/docker/compose/releases/download/v2.16.0/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
+    - name: Make plugin executable
+      shell: bash
+      run: sudo chmod +x /usr/local/bin/docker-compose
+

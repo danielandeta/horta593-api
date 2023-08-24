@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  email     String   @unique
+  hash      String
+  firstName String
+  lastName  String
+  address   String?
+  latitude  Float?
+  longitude Float?
+  role      UserRole @default(USER)
+  scores    Score[]
+  orders    Order[]
+
+  @@map("users")
+}
+
+model Score {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  points    Int
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("scores")
+}
+
+model Product {
+  id           String        @id @default(uuid())
+  name         String
+  description  String
+  price        Decimal       @db.Money
+  image        String        @default("https://via.placeholder.com/150")
+  status       String        @default("AVAILABLE")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  category     Category      @relation(fields: [categoryId], references: [id])
+  categoryId   String
+  orderDetails OrderDetail[]
+
+  @@map("products")
+}
+
+model Category {
+  id        String    @id @default(uuid())
+  icon      String    @default("https://via.placeholder.com/50")
+  name      String    @unique
+  createdAt DateTime? @default(now()) @map("created_at")
+  updatedAt DateTime? @default(now()) @map("updated_at")
+  products  Product[]
+
+  @@map("categories")
+}
+
+model Order {
+  id           String        @id @default(uuid())
+  user         User          @relation(fields: [userId], references: [id])
+  userId       String
+  createdAt    DateTime?     @default(now()) @map("created_at")
+  updatedAt    DateTime?     @default(now()) @map("updated_at")
+  status       OrderStatus   @default(SENT)
+  special_note String?
+  shipmentType String        @default("pickup")
+  amount       Decimal       @default(0) @db.Money
+  orderDetails OrderDetail[]
+  payment      Payment?
+
+  @@map("orders")
+}
+
+model OrderDetail {
+  id           String      @id @default(uuid())
+  order        Order       @relation(fields: [orderId], references: [id])
+  orderId      String
+  product      Product     @relation(fields: [productId], references: [id])
+  productId    String
+  status       OrderStatus @default(SENT)
+  quantity     Int         @default(1)
+  discount     Decimal?    @default(0) @db.Money
+  total        Decimal     @default(0) @db.Money
+  special_note String?
+
+  @@map("order_details")
+}
+
+model Promo {
+  id     String  @id @default(uuid())
+  name   String
+  active Boolean @default(true)
+
+  @@map("promos")
+}
+
+model Payment {
+  id            String   @id @default(uuid())
+  orderId       String   @unique
+  transferImage String?  @default("https://via.placeholder.com/150")
+  firstName     String
+  lastName      String
+  nationalId    String
+  paymentDate   DateTime @default(now())
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @map("updated_at")
+  order         Order    @relation(fields: [orderId], references: [id])
+
+  @@map("payments")
+}
+
+enum OrderStatus {
+  SENT
+  PLACED
+  IN_PROCESS
+  COMPLETED
+  READY
+  CANCELLED
+}
+
+enum UserRole {
+  ADMIN
+  USER
+  EMPLOYEE
+}

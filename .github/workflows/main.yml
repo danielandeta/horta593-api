@@ -1,0 +1,79 @@
+name: Devtools
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - '*'
+
+jobs:
+  build-and-test:
+    if: github.actor!= 'dependabot[bot]'
+    name: Build and Test
+    runs-on: ubuntu-latest
+    env:
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_NAME: ${{ secrets.DB_NAME }}
+      REDIS_PORT: ${{ secrets.REDIS_PORT }}
+      POSTGRES_USER: ${{ secrets.DB_USER }}
+      POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      POSTGRES_DB: ${{ secrets.DB_NAME }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      COOKIE_SECRET: ${{ secrets.COOKIE_SECRET }} 
+      JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
+      JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }} 
+      ACCESS_EXPIRATION: ${{ secrets.ACCESS_EXPIRATION }}
+      REFRESH_EXPIRATION: ${{ secrets.REFRESH_EXPIRATION }}
+      TOKEN: ${{ secrets.TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Setup Docker Compose
+        uses: ./.github/actions/docker-compose
+      - name: Setup Node.js 16.x
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16
+      - name: Start PostgreSQL
+        run: docker-compose up test-db -d
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          REDIS_PORT: ${{ secrets.REDIS_PORT }}
+      - name: Debug Connection
+        run: nc -v localhost 5435
+      - name: List all running containers
+        run: docker ps
+      - name: Install PNPM
+        run: npm i -g pnpm
+      - name: Install dependencies
+        run: pnpm install
+      - name: Export DATABASE_URL
+        run: echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> $GITHUB_ENV
+      - name: Run Prisma Migrations
+        run: pnpm prisma:migrate 
+      - name: Deploy Prisma Migrations
+        run: pnpm prisma:dev:deploy
+      - name: Generate Prisma Client
+        run: npx prisma generate
+      - name: Setup Environment (PR)
+        if: ${{ github.event_name == 'pull_request' }}
+        shell: bash
+        run: echo "COMMIT_SHA=${{ github.event.pull_request.head.sha }}" >>\${GITHUB_ENV}
+      - name: Setup Environment (Push)
+        if: ${{ github.event_name == 'push' }}
+        shell: bash
+        run: echo "COMMIT_SHA=\${GITHUB_SHA}" >> \${GITHUB_ENV}
+      - name: Build
+        run: pnpm run build
+      - name: Test
+        run: pnpm run test
+      - name: Install dotenv-cli
+        run: npm install -g dotenv-cli
+      - name: Test coverage
+        run: pnpm run test:cov
+
